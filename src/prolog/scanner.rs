@@ -1,9 +1,4 @@
-use super::{
-  token_types::TokenType,
-  token::Token,
-  literal::Literal,
-  errors::report,
-};
+use super::{errors::report, literal::Literal, token::Token, token_types::TokenType};
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -76,7 +71,7 @@ impl Scanner {
 
   fn is_special_char(&self, letter: &char) -> bool {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"[^0-9a-zA-Z()._]+").unwrap();
+      static ref RE: Regex = Regex::new(r"[^0-9a-zA-Z()._]+").unwrap();
     }
 
     RE.is_match(&letter.to_string())
@@ -85,6 +80,13 @@ impl Scanner {
   fn is_alphanumeric(&self, c: char) -> bool {
     match c {
       '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => true,
+      _ => false,
+    }
+  }
+
+  fn is_digit(&self, c: char) -> bool {
+    match c {
+      '0'..='9' => true,
       _ => false,
     }
   }
@@ -133,11 +135,28 @@ impl Scanner {
   }
 
   fn process_variable(&mut self) {
+    while self.is_alphanumeric(self.peek()) {
+      self.advance();
+    }
 
+    let text_slice = &self.source[self.start..self.current];
+    let text: String = text_slice.into_iter().collect();
+    self.add_token_with_literal(TokenType::ATOM, Some(Literal::Variable(text)));
   }
 
   fn process_number(&mut self) {
+    while self.is_digit(self.peek()) {
+      self.advance();
+    }
 
+    if self.peek() == '.' && self.is_digit(self.peek_next()) {
+      // consume the "."
+      self.advance();
+
+      while self.is_digit(self.peek()) {
+        self.advance();
+      }
+    }
   }
 
   fn scan_token(&mut self) {
@@ -148,17 +167,18 @@ impl Scanner {
       }
       '\n' => self.line += 1,
       '.' => self.add_token(TokenType::DOT),
+      ',' => self.add_token(TokenType::COMMA),
       '\'' => self.process_string_atom(),
-      'a'..='z' => self.process_atom(),
       t if self.is_special_char(&c) => {
-        if t == ':' && self.peek_next() == '-' {
+        if t == ':' && self.peek() == '-' {
           self.advance();
           self.add_token(TokenType::COLONMINUS);
         } else {
           self.process_special_atom();
         }
       }
-      'A'..='Z' => self.process_variable(),
+      'a'..='z' => self.process_atom(),
+      'A'..='Z' | '_' => self.process_variable(),
       '0'..='9' => self.process_number(),
       _ => report(self.line, "Unexpected character."),
     }
@@ -170,13 +190,50 @@ impl Scanner {
       self.scan_token();
     }
 
-    self.tokens.push(Token::new(
-      TokenType::EOF,
-      "",
-      None,
-      self.line,
-    ));
+    self
+      .tokens
+      .push(Token::new(TokenType::EOF, "", None, self.line));
 
     self.tokens.clone()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn scan_sample_tokens() {
+    let text = String::from("a :- b, c, d.\nb :-f. \ne.");
+    let source = text.chars().collect();
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan_tokens();
+
+    let assert_tokens = vec![
+      TokenType::ATOM,
+      TokenType::COLONMINUS,
+      TokenType::ATOM,
+      TokenType::COMMA,
+      TokenType::ATOM,
+      TokenType::COMMA,
+      TokenType::ATOM,
+      TokenType::DOT,
+      TokenType::ATOM,
+      TokenType::COLONMINUS,
+      TokenType::ATOM,
+      TokenType::DOT,
+      TokenType::ATOM,
+      TokenType::DOT,
+      TokenType::EOF,
+    ];
+
+    let assert_lexeme = vec![
+      "a", ":-", "b", ",", "c", ",", "d", ".", "b", ":-", "f", ".", "e", ".", "",
+    ];
+
+    for (i, t) in tokens.iter().enumerate() {
+      assert_eq!(assert_tokens[i].name(), t.token_type.name());
+      assert_eq!(assert_lexeme[i], t.lexeme);
+    }
   }
 }
