@@ -26,6 +26,7 @@ use super::{errors::*, literal::Literal};
 
 pub trait Expr {
   fn accept(&self, visitor: Box<dyn Visitor>) -> Result<Literal, PrologError>;
+  fn as_any(&self) -> &dyn std::any::Any;
 }
 
 pub trait Visitor {
@@ -48,6 +49,10 @@ impl Expr for LiteralObj {
   fn accept(&self, visitor: Box<dyn Visitor>) -> Result<Literal, PrologError> {
     visitor.visit_literal_expr(self)
   }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
 }
 
 pub struct UnitClause {
@@ -64,6 +69,10 @@ impl Expr for UnitClause {
   fn accept(&self, visitor: Box<dyn Visitor>) -> Result<Literal, PrologError> {
     visitor.visit_unit_clause_expr(self)
   }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
 }
 
 pub struct Rule {
@@ -79,6 +88,10 @@ impl Rule {
 impl Expr for Rule {
   fn accept(&self, visitor: Box<dyn Visitor>) -> Result<Literal, PrologError> {
     visitor.visit_rule_expr(self)
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 

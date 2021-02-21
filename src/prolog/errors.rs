@@ -3,13 +3,10 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PrologError {
   #[error("Error parsing")]
-  ParserError(String),
+  ParserError(usize, String),
 
   #[error("Interpreter error")]
-  InterpreterError(String),
-
-  #[error("Resolver error")]
-  ResolverError(String),
+  InterpreterError(usize, String),
 
   #[error(transparent)]
   IOError(#[from] std::io::Error),
